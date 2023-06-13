@@ -7,7 +7,7 @@ import __dirname from './utils.js'
 import fs from 'fs';
 import path from 'path';
 import { connectDB } from './dao/database.js'; 
-
+import messageRoutes from './routes/messages.js';
 
 const app = express();
 connectDB();
@@ -40,6 +40,7 @@ app.set('view engine', 'handlebars');
 
 app.use('/api/products', productsRouter);
 app.use('/api/carts', cartsRouter);
+app.use('/chat', messageRoutes);
 
 // Rutas de vistas
 app.get('/', (req, res) => {
@@ -51,7 +52,7 @@ app.get('/realTimeProducts', (req, res) => {
 
 });
 app.get('/chat', (req, res) => {
-  res.render('chat');
+  res.render('layouts/chat');
 
 });
 
@@ -62,7 +63,7 @@ app.get('/chat', (req, res) => {
 io.on('connection', (socket) => {
   console.log('Nuevo usuario conectado');
 
-  let dataCompleta = [];
+  let messages = [];
   
   socket.on('newProduct', (product) => {
     pm.addProduct(product.title, product.description, product.price, product.thumbnail, product.code, product.stock);
@@ -76,11 +77,9 @@ io.on('connection', (socket) => {
     io.emit('updateProducts', products);
     console.log('Productos actualizados'+ products)
   });
-  socket.emit('messages', messages);
-    
   socket.on('message', data => {
-      messages.push(data);
-      io.sockets.emit('messages', messages);
+    messageManager.addMessage(data.user, data.message);
+    io.sockets.emit('newMessage', {user: data.user, message: data.message});
   });
  
 

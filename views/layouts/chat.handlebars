@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <script src="/socket.io/socket.io.js"></script>
+ <ul id="messages">
+  {{#each messages}}
+  <li>{{this.user}}: {{this.message}}</li>
+  {{/each}}
+</ul>
+
+<input type="text" id="user" placeholder="Nombre de usuario">
+<input type="text" id="message" placeholder="Mensaje">
+<button id="send">Enviar</button>
+
+<script>
+  const socket = io();
+
+  const user = document.getElementById('user');
+  const message = document.getElementById('message');
+  const messages = document.getElementById('messages');
+
+  document.getElementById('send').addEventListener('click', () => {
+    socket.emit('message', {user: user.value, message: message.value});
+    message.value = '';
+  });
+
+  socket.on('newMessage', data => {
+    const newMessage = document.createElement('li');
+    newMessage.textContent = `${data.user}: ${data.message}`;
+    messages.appendChild(newMessage);
+  });
+</script>
+    
+    </body>
+</html>
