@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inicio</title>
+</head>
+<body>
+    <h1>Bienvenido a nuestra tienda online!</h1>
+    <p>Haga click en el botón de abajo para ver los productos disponibles.</p>
+    <a href="/realtimeproducts">
+        <button>Ver productos en tiempo real</button>
+    </a>
+
+     <h1>Lista de productos</h1>
+    <ul>
+      {{#each products}}
+        <li>
+          <h2>{{this.title}}</h2>
+          <p>{{this.description}}</p>
+          <p>{{this.price}}</p>
+        </li>
+      {{/each}}
+    </ul>
+</body>
+</html>
