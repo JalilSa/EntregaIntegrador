@@ -2,7 +2,6 @@
 
 import express from 'express';
 import MessageManager from './MessageManager.js';
-import path from 'path';
 import io from 'socket.io';
 
 const router = express.Router();

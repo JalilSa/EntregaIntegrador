@@ -62,8 +62,6 @@ app.get('/chat', (req, res) => {
 
 io.on('connection', (socket) => {
   console.log('Nuevo usuario conectado');
-
-  let messages = [];
   
   socket.on('newProduct', (product) => {
     pm.addProduct(product.title, product.description, product.price, product.thumbnail, product.code, product.stock);
