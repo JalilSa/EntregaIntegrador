@@ -56,12 +56,55 @@ class ProductManager {
     console.log('Producto agregado:', newProduct);
   }
 
-  getProducts(limit) {
-    if (limit) {
-      return this.products.slice(0, limit);
+  getProducts(options = {}) {
+    const { limit = 10, page = 1, sort, query } = options;
+  
+    // Aplica el filtro de categoría o disponibilidad si se especifica el query
+    let filteredProducts = this.products;
+    if (query) {
+      filteredProducts = filteredProducts.filter((product) => {
+        return (
+          product.category.toLowerCase().includes(query.toLowerCase()) ||
+          product.availability.toLowerCase().includes(query.toLowerCase())
+        );
+      });
     }
-    return this.products;
+  
+    // Ordena los productos por precio ascendente o descendente si se especifica el sort
+    if (sort === 'asc') {
+      filteredProducts.sort((a, b) => a.price - b.price);
+    } else if (sort === 'desc') {
+      filteredProducts.sort((a, b) => b.price - a.price);
+    }
+  
+    // Calcula la paginación
+    const totalProducts = filteredProducts.length;
+    const totalPages = Math.ceil(totalProducts / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const products = filteredProducts.slice(startIndex, endIndex);
+  
+    // Genera los enlaces de página previa y siguiente
+    const prevPage = page > 1 ? page - 1 : null;
+    const nextPage = page < totalPages ? page + 1 : null;
+    const prevLink = prevPage ? `/api/products?limit=${limit}&page=${prevPage}&sort=${sort}&query=${query}` : null;
+    const nextLink = nextPage ? `/api/products?limit=${limit}&page=${nextPage}&sort=${sort}&query=${query}` : null;
+  
+    // Devuelve los productos y la información de paginación
+    return {
+      products,
+      pagination: {
+        totalPages,
+        prevPage,
+        nextPage,
+        hasPrevPage: prevPage !== null,
+        hasNextPage: nextPage !== null,
+        prevLink,
+        nextLink,
+      },
+    };
   }
+  
 
   getProductById(id) {
     const product = this.products.find(product => product.id === id);

@@ -18,12 +18,35 @@ try {
 
 router.get('/', async (req, res) => {
   try {
-    const limit = req.query.limit ? parseInt(req.query.limit) : undefined;
-    const products = await pm.getProducts(limit);
-    res.json(products);
+    const { limit = 10, page = 1, sort, query } = req.query;
+    const options = {
+      limit: parseInt(limit),
+      page: parseInt(page),
+      sort,
+      query,
+    };
+    
+    const result = await pm.getProducts(options);
+    const { totalPages, prevPage, nextPage, hasPrevPage, hasNextPage, prevLink, nextLink } = result.pagination;
+    
+    res.json({
+      status: 'success',
+      payload: result.products,
+      totalPages,
+      prevPage,
+      nextPage,
+      page: parseInt(page),
+      hasPrevPage,
+      hasNextPage,
+      prevLink,
+      nextLink,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).send('Error al obtener los productos');
+    res.status(500).json({
+      status: 'error',
+      message: 'Error al obtener los productos',
+    });
   }
 });
 
