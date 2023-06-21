@@ -1,24 +1,37 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Inicio</title>
-</head>
-<body>
-    <h1>Bienvenido a nuestra tienda online!</h1>
-    <p>Haga click en el botón de abajo para ver los productos disponibles.</p>
-    <a href="/realtimeproducts">
-        <button>Ver productos en tiempo real</button>
-    </a>
+<div id="chat">
+  <h1>Chat</h1>
+  <ul id="message-list">
+    <!-- Los mensajes serán añadidos aquí dinámicamente con JavaScript -->
+  </ul>
+  <form id="message-form">
+    <input type="text" id="message-input" placeholder="Escribe tu mensaje aquí">
+    <button type="submit">Enviar</button>
+  </form>
+</div>
 
-     <h1>Lista de productos</h1>
-    <ul>
-      {{#each products}}
-        <li>
-          <h2>{{this.title}}</h2>
-          <p>{{this.description}}</p>
-          <p>{{this.price}}</p>
-        </li>
-      {{/each}}
-    </ul>
-</body>
-</html>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+
+  // Cuando el cliente recibe los mensajes del servidor...
+  socket.on('Mensajes', messages => {
+    const messageList = document.querySelector('#message-list');
+    messageList.innerHTML = '';
+    for (let message of messages) {
+      const li = document.createElement('li');
+      li.textContent = `${message.user}: ${message.message}`;
+      messageList.appendChild(li);
+    }
+  });
+
+  // Cuando el cliente envía un nuevo mensaje...
+  const form = document.querySelector('#message-form');
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const messageInput = document.querySelector('#message-input');
+    const user = "Nombre del usuario";  // Reemplazar con el nombre del usuario actual
+    const message = messageInput.value;
+    socket.emit('message', {user, message});
+    messageInput.value = '';
+  });
+</script>

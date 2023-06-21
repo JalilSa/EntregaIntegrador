@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Inicio</title>
+    <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
     <h1>Bienvenido a nuestra tienda online!</h1>
@@ -9,11 +10,8 @@
     <a href="/realtimeproducts">
         <button>Ver productos en tiempo real</button>
     </a>
-        <a href="/chat">
-        <button>Chat</button>
-    </a>
 
-     <h1>Lista de productos</h1>
+    <h1>Lista de productos</h1>
     <ul>
       {{#each products}}
         <li>
@@ -23,5 +21,40 @@
         </li>
       {{/each}}
     </ul>
+
+    <h1>Chat</h1>
+    <input id="username" type="text" placeholder="Ingrese su nombre">
+    <input id="message" type="text" placeholder="Ingrese su mensaje">
+    <button id="send">Enviar</button>
+
+    <div id="messages">
+        {{#each messages}}
+            <p><strong>{{this.username}}: </strong>{{this.text}}</p>
+        {{/each}}
+    </div>
+
+    <script>
+        var socket = io();
+        var usernameInput = document.getElementById('username');
+        var messageInput = document.getElementById('message');
+        var sendButton = document.getElementById('send');
+        var messagesDiv = document.getElementById('messages');
+
+        sendButton.onclick = function() {
+            var text = messageInput.value;
+            var username = usernameInput.value;
+            socket.emit('message', { username: username, text: text });
+            messageInput.value = '';
+        };
+
+        socket.on('Mensajes', function(messages) {
+            messagesDiv.innerHTML = '';
+            for (var message of messages) {
+                var messageElement = document.createElement('p');
+                messageElement.innerHTML = '<strong>' + message.username + ': </strong>' + message.text;
+                messagesDiv.appendChild(messageElement);
+            }
+        });
+    </script>
 </body>
 </html>

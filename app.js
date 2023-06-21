@@ -7,17 +7,15 @@ import __dirname from './utils.js'
 import fs from 'fs';
 import path from 'path';
 import { connectDB } from './dao/database.js'; 
-import messageRoutes from './routes/messages.js';
+import Message from './dao/models/MessageModel.js'; 
 
 const app = express();
 connectDB();
 
-
 const httpServer = app.listen(8080, () => console.log(`Server running`));
 
- const io = new Server(httpServer);
+const io = new Server(httpServer);
 export default io
-
 //set up products
 let products = [];
 
@@ -40,26 +38,19 @@ app.set('view engine', 'handlebars');
 
 app.use('/api/products', productsRouter);
 app.use('/api/carts', cartsRouter);
-app.use('/chat', messageRoutes);
 
 // Rutas de vistas
-app.get('/', (req, res) => {
-  res.render('home', {products: products});
+app.get('/', async (req, res) => {
+  const messages = await Message.find();
+  res.render('home', {products: products, messages: messages});
 });
 
 app.get('/realTimeProducts', (req, res) => {
   res.render('realTimeProducts', {products: products});
-
 });
-app.get('/chat', (req, res) => {
-  res.render('layouts/chat');
-
-});
-
 
 
 // Config de socket.io
-
 io.on('connection', (socket) => {
   console.log('Nuevo usuario conectado');
   
@@ -75,13 +66,14 @@ io.on('connection', (socket) => {
     io.emit('updateProducts', products);
     console.log('Productos actualizados'+ products)
   });
-  socket.on('message', data => {
-    messageManager.addMessage(data.user, data.message);
-    io.sockets.emit('newMessage', {user: data.user, message: data.message});
+
+  socket.on('message', async data => {
+    const newMessage = new Message(data);
+    await newMessage.save();
+    console.log(data.user);
+    console.log(data.message)
+  
+    const allMessages = await Message.find();
+    io.emit('Mensajes', allMessages);
   });
- 
-
 });
-
-
-
