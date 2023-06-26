@@ -3,6 +3,7 @@
 <head>
     <title>Inicio</title>
     <script src="/socket.io/socket.io.js"></script>
+    
 </head>
 <body>
     <h1>Bienvenido a nuestra tienda online!</h1>
@@ -27,34 +28,37 @@
     <input id="message" type="text" placeholder="Ingrese su mensaje">
     <button id="send">Enviar</button>
 
-    <div id="messages">
-        {{#each messages}}
-            <p><strong>{{this.username}}: </strong>{{this.text}}</p>
-        {{/each}}
-    </div>
+<div id="messages">
+  {{#each messages}}
+      <p><strong>{{this.user}}: </strong>{{this.message}}</p>
+  {{/each}}
+</div>
 
-    <script>
-        var socket = io();
-        var usernameInput = document.getElementById('username');
-        var messageInput = document.getElementById('message');
-        var sendButton = document.getElementById('send');
-        var messagesDiv = document.getElementById('messages');
 
-        sendButton.onclick = function() {
-            var text = messageInput.value;
-            var username = usernameInput.value;
-            socket.emit('message', { username: username, text: text });
-            messageInput.value = '';
-        };
+<script>
+var socket = io();
+var usernameInput = document.getElementById('username');
+var messageInput = document.getElementById('message');
+var sendButton = document.getElementById('send');
+var messagesDiv = document.getElementById('messages');
 
-        socket.on('Mensajes', function(messages) {
-            messagesDiv.innerHTML = '';
-            for (var message of messages) {
-                var messageElement = document.createElement('p');
-                messageElement.innerHTML = '<strong>' + message.username + ': </strong>' + message.text;
-                messagesDiv.appendChild(messageElement);
-            }
-        });
-    </script>
+sendButton.addEventListener('click', function() {
+    var user = usernameInput.value;
+    var message = messageInput.value;
+
+    // Se envía el mensaje al servidor a través del socket
+    socket.emit('chat message', { user: user, message: message });
+
+    // Se borra el contenido del campo de mensaje
+    messageInput.value = '';
+});
+
+socket.on('chat message', function(message) {
+    var messageElement = document.createElement('p');
+    messageElement.innerHTML = '<strong>' + message.user + ': </strong>' + message.message;
+    messagesDiv.appendChild(messageElement);
+});
+</script>
+
 </body>
 </html>

@@ -8,12 +8,13 @@ import fs from 'fs';
 import path from 'path';
 import { connectDB } from './dao/database.js'; 
 import Message from './dao/models/MessageModel.js'; 
-
+import MessageManagerDB from './dao/MessageManagerDB.js'
 const app = express();
 connectDB();
 
 const httpServer = app.listen(8080, () => console.log(`Server running`));
 
+const messageManager = new MessageManagerDB
 const io = new Server(httpServer);
 export default io
 //set up products
@@ -41,7 +42,7 @@ app.use('/api/carts', cartsRouter);
 
 // Rutas de vistas
 app.get('/', async (req, res) => {
-  const messages = await Message.find();
+  let messages = await messageManager.getMessages();
   res.render('home', {products: products, messages: messages});
 });
 
@@ -49,6 +50,14 @@ app.get('/realTimeProducts', (req, res) => {
   res.render('realTimeProducts', {products: products});
 });
 
+const handlebarsInstance = handlebars.create({
+  runtimeOptions: {
+    // La opción allowProtoPropertiesByDefault 
+    allowProtoPropertiesByDefault: true
+  }
+});
+
+app.engine('handlebars', handlebarsInstance.engine);
 
 // Config de socket.io
 io.on('connection', (socket) => {
@@ -67,13 +76,12 @@ io.on('connection', (socket) => {
     console.log('Productos actualizados'+ products)
   });
 
-  socket.on('message', async data => {
-    const newMessage = new Message(data);
-    await newMessage.save();
+  socket.on('chat message', async data => {
+    let newMessage = await Message.create({ user: data.user, message: data.message });
+    newMessage = newMessage.toObject();
+    io.emit('chat message', newMessage);
     console.log(data.user);
     console.log(data.message)
-  
-    const allMessages = await Message.find();
-    io.emit('Mensajes', allMessages);
+
   });
 });
