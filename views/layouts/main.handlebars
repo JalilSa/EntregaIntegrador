@@ -3,62 +3,16 @@
 <head>
     <title>Inicio</title>
     <script src="/socket.io/socket.io.js"></script>
-    
+<html lang="es-AR">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="profile" href="http://gmpg.org/xfn/11" />
+    <title>{{title}}</title>
 </head>
 <body>
-    <h1>Bienvenido a nuestra tienda online!</h1>
-    <p>Haga click en el botón de abajo para ver los productos disponibles.</p>
-    <a href="/realtimeproducts">
-        <button>Ver productos en tiempo real</button>
-    </a>
+{{> header}}
+{{body}}
 
-    <h1>Lista de productos</h1>
-    <ul>
-      {{#each products}}
-        <li>
-          <h2>{{this.title}}</h2>
-          <p>{{this.description}}</p>
-          <p>{{this.price}}</p>
-        </li>
-      {{/each}}
-    </ul>
-
-    <h1>Chat</h1>
-    <input id="username" type="text" placeholder="Ingrese su nombre">
-    <input id="message" type="text" placeholder="Ingrese su mensaje">
-    <button id="send">Enviar</button>
-
-<div id="messages">
-  {{#each messages}}
-      <p><strong>{{this.user}}: </strong>{{this.message}}</p>
-  {{/each}}
-</div>
-
-
-<script>
-var socket = io();
-var usernameInput = document.getElementById('username');
-var messageInput = document.getElementById('message');
-var sendButton = document.getElementById('send');
-var messagesDiv = document.getElementById('messages');
-
-sendButton.addEventListener('click', function() {
-    var user = usernameInput.value;
-    var message = messageInput.value;
-
-    // Se envía el mensaje al servidor a través del socket
-    socket.emit('chat message', { user: user, message: message });
-
-    // Se borra el contenido del campo de mensaje
-    messageInput.value = '';
-});
-
-socket.on('chat message', function(message) {
-    var messageElement = document.createElement('p');
-    messageElement.innerHTML = '<strong>' + message.user + ': </strong>' + message.message;
-    messagesDiv.appendChild(messageElement);
-});
-</script>
 
 </body>
 </html>

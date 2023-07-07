@@ -1,17 +1,43 @@
-<!DOCTYPE html>
-<html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Mi Aplicación con Sockets</title>
-    </head>
-    <body>
-        <h1>Cliente websocket</h1>
-        <input id="user" type="text" placeholder="Nombre de usuario">
-        <input id="message" type="text" placeholder="Escribe un mensaje">
-        <button>Enviar</button>
-        <ul id="messages"></ul>
-        <script src="/socket.io/socket.io.js"></script>
-        <script src="/js/index.js"></script>
-    </body>
-</html>
+<body>
+   <script src="/socket.io/socket.io.js"></script>
+    <h1>Chat</h1>
+    <input id="username" type="text" placeholder="Ingrese su nombre">
+    <input id="message" type="text" placeholder="Ingrese su mensaje">
+    <button id="send">Enviar</button>
+
+<ul id="messages">
+  {{#each messages}}
+      <p><strong>{{this.user}}: </strong>{{this.message}}</p>
+  {{/each}}
+</ul>
+
+
+
+    
+
+<script>
+var socket = io();
+var usernameInput = document.getElementById('username');
+var messageInput = document.getElementById('message');
+var sendButton = document.getElementById('send');
+var messagesDiv = document.getElementById('messages');
+
+sendButton.addEventListener('click', function() {
+    var user = usernameInput.value;
+    var message = messageInput.value;
+
+    // Se envía el mensaje al servidor a través del socket
+    socket.emit('chat message', { user: user, message: message });
+
+    // Se borra el contenido del campo de mensaje
+    messageInput.value = '';
+});
+
+socket.on('chat message', function(message) {
+    var messageElement = document.createElement('p');
+    messageElement.innerHTML = '<strong>' + message.user + ': </strong>' + message.message;
+    messagesDiv.appendChild(messageElement);
+});
+</script>
+ 
+</body>

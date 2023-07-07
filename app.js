@@ -1,17 +1,19 @@
 import express from 'express';
 import { Server } from 'socket.io'
 import handlebars from 'express-handlebars'
-import productsRouter from './routes/products.js';
-import cartsRouter from './routes/carts.js';
+import session from 'express-session';
 import __dirname from './utils.js'
 import fs from 'fs';
 import path from 'path';
 import { connectDB } from './dao/database.js'; 
 import Message from './dao/models/MessageModel.js'; 
 import MessageManagerDB from './dao/MessageManagerDB.js'
+import {UserModel} from './dao/models/Usermodel.js';
+import bcrypt from 'bcrypt';
+import { authMiddleware } from './middlewares/auth.js';
+
 const app = express();
 connectDB();
-
 const httpServer = app.listen(8080, () => console.log(`Server running`));
 
 const messageManager = new MessageManagerDB
@@ -26,38 +28,81 @@ try {
 } catch (err) {
     console.error('Error', err);
 }
-
-app.use(express.static('public'));
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
 
-// Config de handlebars
-app.set('views', __dirname+'/views');
-app.use(express.static(__dirname+'/views'));
-app.engine('handlebars', handlebars.engine());
-app.set('view engine', 'handlebars');
 
-app.use('/api/products', productsRouter);
-app.use('/api/carts', cartsRouter);
+//setup handlebars
+app.engine('handlebars', handlebars.engine({runtimeOptions: {
+  allowProtoPropertiesByDefault: true
+}}));
+app.set('view engine', 'handlebars');
+app.set('views', __dirname+'/views');
+app.use(session({
+  secret: 'secret-key',
+  resave: false,
+  saveUninitialized: false,
+}));
 
 // Rutas de vistas
 app.get('/', async (req, res) => {
-  let messages = await messageManager.getMessages();
-  res.render('home', {products: products, messages: messages});
+  res.render('main', { user: req.session ? req.session.user : undefined });
 });
+
+app.get('/login', (req, res) => {
+  res.render('login'); 
+});
+
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  // Busca al usuario
+  const user = await UserModel.findOne({ username: username });
+
+  // Verifica que el usuario/contraseña
+  if (user && bcrypt.compareSync(password, user.password)) {
+    req.session.user = user;
+
+    res.redirect('/home');
+  } else {
+    res.status(401).send('El usuario o la contraseña son incorrectos');
+  }
+});
+
+
+app.get('/home', async (req, res) => {
+  let messages = await messageManager.getMessages();
+  res.render('home', { messages });
+});
+
+app.get('/chat', async (req, res) => {
+  let messages = await messageManager.getMessages();
+  res.render('chat', { messages });
+});
+
 
 app.get('/realTimeProducts', (req, res) => {
   res.render('realTimeProducts', {products: products});
 });
 
-const handlebarsInstance = handlebars.create({
-  runtimeOptions: {
-    // La opción allowProtoPropertiesByDefault 
-    allowProtoPropertiesByDefault: true
-  }
+
+app.get('/register' , (req,res)=> {
+  res.render('register')
+})
+
+app.get('/logout', authMiddleware, (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      res.status(500).send('No se pudo cerrar la sesión');
+    } else {
+      res.redirect('/login');
+    }
+  });
 });
 
-app.engine('handlebars', handlebarsInstance.engine);
+
+
+
 
 // Config de socket.io
 io.on('connection', (socket) => {
@@ -83,5 +128,15 @@ io.on('connection', (socket) => {
     console.log(data.user);
     console.log(data.message)
 
+  });
+
+  socket.on('register', async (data) => {
+    const hashedPassword = bcrypt.hashSync(data.password, 10);
+    const user = new UserModel({
+      username: data.username,
+      email: data.email,
+      password: hashedPassword,
+    });
+    await user.save();
   });
 });

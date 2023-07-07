@@ -1,0 +1,15 @@
+{{#if user}}
+  <h1>Bienvenido, {{user.username}}!</h1>
+  <a href="/logout">Cerrar sesión</a>
+  <!-- El contenido que se muestra cuando el usuario está autenticado -->
+{{else}}
+  <!-- Formulario de inicio de sesión -->
+  <form action="/login" method="post">
+    <label for="username">Usuario:</label><br>
+    <input type="text" id="username" name="username"><br>
+    <label for="password">Contraseña:</label><br>
+    <input type="password" id="password" name="password"><br>
+    <input type="submit" value="Iniciar sesión">
+  </form>
+  <a href="/register">Registrate aquí</a>
+{{/if}}

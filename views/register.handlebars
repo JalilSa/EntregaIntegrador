@@ -1,0 +1,31 @@
+<body>
+  <script src="/socket.io/socket.io.js"></script>
+  <h1>Registrarse</h1>
+  <input id="username" type="text" placeholder="Ingrese su nombre de usuario">
+  <input id="email" type="text" placeholder="Ingrese su correo electrónico">
+  <input id="password" type="password" placeholder="Ingrese su contraseña">
+  <button id="register">Registrar</button>
+
+<a href="/login"><button>Tenes cuenta? ingresa</button></a>
+  <script>
+    var socket = io();
+    var usernameInput = document.getElementById('username');
+    var emailInput = document.getElementById('email');
+    var passwordInput = document.getElementById('password');
+    var registerButton = document.getElementById('register');
+
+    registerButton.addEventListener('click', function() {
+      var username = usernameInput.value;
+      var email = emailInput.value;
+      var password = passwordInput.value;
+
+      // Emitir datos de registro al servidor
+      socket.emit('register', { username: username, email: email, password: password });
+
+      // Borra los campos de entrada
+      usernameInput.value = '';
+      emailInput.value = '';
+      passwordInput.value = '';
+    });
+  </script>
+</body>
