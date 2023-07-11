@@ -1,5 +1,10 @@
 
   <body>
+    {{#if user}}
+  <h1>Bienvenido, {{user.username}}! Tu rol es {{user.role}}.</h1>
+  <a href="/logout">Cerrar sesión</a>
+{{/if}}
+
     <h1>Lista de productos</h1>
     <ul id="product-list">
       {{#each products}}

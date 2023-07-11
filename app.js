@@ -53,37 +53,39 @@ app.get('/login', (req, res) => {
   res.render('login'); 
 });
 
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
 
-  // Busca al usuario
-  const user = await UserModel.findOne({ username: username });
 
-  // Verifica que el usuario/contraseña
-  if (user && bcrypt.compareSync(password, user.password)) {
-    req.session.user = user;
-
-    res.redirect('/home');
+app.get('/home', (req, res) => {
+  // Verificar si el usuario está logueado
+  if (req.session.user) {
+    // Renderizar la vista de home y pasar los datos del usuario
+    res.render('home', { user: req.session.user });
   } else {
-    res.status(401).send('El usuario o la contraseña son incorrectos');
+    // Si no hay usuario logueado, redirigir al login
+    res.redirect('/login');
   }
 });
 
 
-app.get('/home', async (req, res) => {
-  let messages = await messageManager.getMessages();
-  res.render('home', { messages });
-});
-
 app.get('/chat', async (req, res) => {
-  let messages = await messageManager.getMessages();
-  res.render('chat', { messages });
-});
+  if (req.session.user) {
+    res.render('chat', { user: req.session.user });
+    let messages = await messageManager.getMessages();
+    res.render('chat', { messages });
+  } else {
+    // Si no hay usuario logueado, redirigir al login
+    res.redirect('/login');
+}});
 
 
 app.get('/realTimeProducts', (req, res) => {
-  res.render('realTimeProducts', {products: products});
-});
+  if (req.session.user) {
+    res.render('realTimeProducts', {products: products});
+    res.render('chat', { messages });
+  } else {
+    // Si no hay usuario logueado, redirigir al login
+    res.redirect('/login');
+}});
 
 
 app.get('/register' , (req,res)=> {
@@ -98,6 +100,51 @@ app.get('/logout', authMiddleware, (req, res) => {
       res.redirect('/login');
     }
   });
+});
+
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  // La contraseña de administrador debe ser un hash guardado de manera segura, 
+  // no una cadena de texto en el código.
+ 
+
+  const user = await UserModel.findOne({ username: username });
+
+  if (user && bcrypt.compareSync(password, user.password)) {
+    req.session.user = user;
+    return res.redirect('/home');
+  } else {
+    res.status(401).send('El usuario o la contraseña son incorrectos');
+  }
+});
+
+app.post('/register', async (req, res) => {
+  const { username, email, password } = req.body;
+  const hashedPassword = bcrypt.hashSync(password, 10);
+
+  try {
+    const user = new UserModel({
+      username: username,
+      email: email,
+      password: hashedPassword,
+    });
+
+    await user.save();
+    res.redirect('/login');
+  } catch (err) {
+    if (err.code === 11000) {
+      // Código de error de MongoDB para "Duplicate Key"
+      if (err.keyPattern.email) {
+        res.status(400).send('Este email ya existe');
+      } else if (err.keyPattern.username) {
+        res.status(400).send('Este usuario ya existe');
+      }
+    } else {
+      // Si no es un error de duplicado, enviar el error completo
+      res.status(500).send(err);
+    }
+  }
 });
 
 
@@ -130,13 +177,33 @@ io.on('connection', (socket) => {
 
   });
 
-  socket.on('register', async (data) => {
-    const hashedPassword = bcrypt.hashSync(data.password, 10);
-    const user = new UserModel({
-      username: data.username,
-      email: data.email,
-      password: hashedPassword,
-    });
-    await user.save();
-  });
+
+  
 });
+//Crear usuario de prueba
+const adminEmail = 'adminCoder@coder.com';
+const adminPassword = 'adminCod3r123';
+const hashedPassword = bcrypt.hashSync(adminPassword, 10);
+
+UserModel.findOne({ email: adminEmail }).then(user => {
+  if (!user) {
+    const adminUser = new UserModel({
+      username: 'admin',
+      email: adminEmail,
+      password: hashedPassword,
+      role: 'admin'
+    });
+
+    adminUser.save().then(() => {
+      console.log('Usuario administrador creado');
+    }).catch(err => {
+      console.error('No se pudo crear el usuario administrador', err);
+    });
+  } else {
+
+    console.log('El usuario administrador ya existe');
+  }
+}).catch(err => {
+  console.error('Error comprobando la existencia del usuario administrador', err);
+});
+
