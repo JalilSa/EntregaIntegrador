@@ -13,6 +13,8 @@
     "express-session": "^1.17.3",
     "mongoose": "^7.2.2",
     "passport": "^0.6.0",
+    "passport-github": "^1.1.0",
+    "passport-github2": "^0.1.12",
     "passport-local": "^1.0.0",
     "socket.io": "^4.6.1",
     "sweetalert2": "^11.7.12"

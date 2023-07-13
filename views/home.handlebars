@@ -1,9 +1,4 @@
-{{#if user}}
-  <h1>Bienvenido, {{user.username}}!</h1>
-  <a href="/logout">Cerrar sesión</a>
-  {{> header}}
-{{else}}
-  <!-- Formulario de inicio de sesión -->
+
   <form action="/login" method="post">
     <label for="username">Usuario:</label><br>
     <input type="text" id="username" name="username"><br>
@@ -11,5 +6,6 @@
     <input type="password" id="password" name="password"><br>
     <input type="submit" value="Iniciar sesión">
   </form>
-  <a href="/register">Registrate aquí</a>
-{{/if}}
+  <a href="/register">Regístrate aquí</a>
+  <a href="/auth/github">Entrar con Github</a>
+
