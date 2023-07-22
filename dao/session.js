@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { userModel } from "./models/Usermodel.js";
+
 
 mongoose.connect('mongodb://2717');
 
