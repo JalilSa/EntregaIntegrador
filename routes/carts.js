@@ -1,8 +1,10 @@
 import express from 'express';
 import CartManager from '../CartManager.js';
 const router = express.Router();
+import ProductManager from '../ProductManager.js';
 
-const cm = new CartManager('carrito.json');
+let pm = new ProductManager;
+const cm = new CartManager('carrito.json', pm);
 
 router.get('/', (req, res) => {
   try {

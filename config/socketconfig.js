@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import Message from '../dao/models/MessageModel.js';
 import MessageManagerDB from '../dao/MessageManagerDB.js';
-
+import { CustomError, ErrorDictionary } from '../errorHandler.js';
 const messageManager = new MessageManagerDB();
 
 const configureSockets = (httpServer) => {
@@ -10,10 +10,14 @@ const configureSockets = (httpServer) => {
   io.on('connection', (socket) => {
     console.log('Nuevo usuario conectado');
     
-    socket.on('newProduct', (product) => {
-      pm.addProduct(product.title, product.description, product.price, product.thumbnail, product.code, product.stock);
-      products = pm.getProducts();
-      io.emit('updateProducts', products);
+    socket.on('newProduct', async (product) => {
+      try {
+        pm.addProduct(product.title, product.description, product.price, product.thumbnail, product.code, product.stock);
+        products = pm.getProducts();
+        io.emit('updateProducts', products);
+      } catch (error) {
+        io.emit('error', error.message);  
+      }
     });
   
     socket.on('deleteProduct', (productId) => {

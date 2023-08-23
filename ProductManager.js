@@ -1,5 +1,5 @@
 import fs from 'fs';
-
+import { CustomError, ErrorDictionary } from './errorHandler.js';
 
 class ProductManager {
   constructor(path) {
@@ -13,8 +13,7 @@ class ProductManager {
       const data = fs.readFileSync(this.path);
       return JSON.parse(data);
     } catch (error) {
-      console.log('Error al leer el archivo de productos', error);
-      return [];
+      throw new CustomError("READ_FILE_ERROR");
     }
   }
 
@@ -23,21 +22,18 @@ class ProductManager {
       const data = JSON.stringify(this.products);
       fs.writeFileSync(this.path, data);
     } catch (error) {
-      console.log('Error al escribir en el archivo de productos', error);
+      throw new CustomError("WRITE_FILE_ERROR");
     }
   }
 
   addProduct(title, description, price, thumbnail, code, stock, status = true, category, thumbnails = []) {
     if (!title || !description || !price || !thumbnail || !code || !stock) {
-      console.error('Todos los campos son obligatorios');
-      return;
+        throw new CustomError("MISSING_FIELDS");
     }
 
     if (this.products.some(product => product.code === code)) {
-      console.error('Ya existe un producto con ese código');
-      return;
+        throw new CustomError("PRODUCT_EXISTS");
     }
-
     const newProduct = {
       id: ++this.lastId,
       title,
@@ -53,9 +49,8 @@ class ProductManager {
 
     this.products.push(newProduct);
     this.writeProducts();
-    console.log('Producto agregado:', newProduct);
+    return newProduct; // Retorna el producto agregado
   }
-
   getProducts(options = {}) {
     const { limit = 10, page = 1, sort, query } = options;
   
@@ -109,35 +104,28 @@ class ProductManager {
   getProductById(id) {
     const product = this.products.find(product => product.id === id);
     if (!product) {
-      console.error('Producto no encontrado');
-      return;
+      throw new CustomError("PRODUCT_NOT_FOUND");
     }
     return product;
   }
 
   updateProduct(id, fieldsToUpdate) {
-    const product = this.getProductById(id);
-    if (!product) {
-      console.error('Producto no encontrado');
-      return;
-    }
+    const product = this.getProductById(id); 
 
     const updatedProduct = { ...product, ...fieldsToUpdate };
     this.products = this.products.map(p => (p.id === id ? updatedProduct : p));
     this.writeProducts();
-    console.log('Producto actualizado:', updatedProduct);
+    return updatedProduct; 
   }
 
   deleteProduct(id) {
     const productIndex = this.products.findIndex(product => product.id === id);
     if (productIndex === -1) {
-      console.error('Producto no encontrado');
-      return;
+      throw new CustomError("PRODUCT_NOT_FOUND");
     }
 
     this.products.splice(productIndex, 1);
     this.writeProducts();
-    console.log(`Producto con id ${id} eliminado`);
   }
 }
 

@@ -1,0 +1,64 @@
+<h1>Tu Carrito</h1>
+<ul id="cart-list">
+  {{#each cart}}
+    <li>
+      <h2>{{this.productTitle}}</h2>
+      <p>{{this.productDescription}}</p>
+      <p>{{this.productPrice}}</p>
+      <p>Cantidad: {{this.quantity}}</p>
+    </li>
+  {{/each}}
+</ul>
+<button onclick="proceedToCheckout(cart)">Proceder a la compra</button>
+
+<script>
+let cart = []; 
+let user = [];
+
+async function proceedToCheckout() {
+  try {
+    console.log("Inicio de la función proceedToCheckout");
+
+    const amount = cart.reduce((acc, item) => acc + (item.productPrice * item.quantity), 0);
+    console.log("Cantidad total calculada:", amount);
+
+    const purchaser = user.email; 
+    console.log("Correo electrónico del comprador:", purchaser);
+
+    // Hace una solicitud POST al servidor para crear el ticket.
+    const response = await fetch('/create-ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, purchaser })
+    });
+
+    console.log("Respuesta recibida:", response);
+
+    // Intentar obtener y procesar la respuesta JSON
+    let result;
+    try {
+      result = await response.json();
+    } catch (err) {
+      console.error('Error al leer la respuesta JSON:', err.message);
+      alert('Error al leer la respuesta del servidor.');
+      return; 
+    }
+
+    console.log("Resultado en formato JSON:", result);
+
+    if (result.success) {
+      console.log("Compra exitosa!");
+      alert('Compra exitosa!');
+    } else {
+      console.log("Error en la respuesta del servidor:", result);
+      alert('Ocurrió un error al procesar la compra.');
+    }
+
+  } catch (error) {
+    console.error('Error en proceedToCheckout:', error.message);
+    alert('Ocurrió un error: ' + error.message);
+  }
+}
+
+
+</script>

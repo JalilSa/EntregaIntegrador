@@ -14,7 +14,7 @@ import { Strategy as GitHubStrategy } from 'passport-github2';
 import dotenv from 'dotenv';
 import routes from './routes/rutas.js';
 import configureSockets from './config/socketconfig.js';
-
+import { CustomError, ErrorDictionary } from './errorHandler.js';
 
 dotenv.config();
 const app = express();
@@ -26,13 +26,13 @@ const io = configureSockets(httpServer);
 export default io
 //set up products
 let products = fs.readFileSync(path.resolve(__dirname, './productos.json'), 'utf-8')
-
 try {
-    const data = fs.readFileSync(path.resolve(__dirname, './productos.json'), 'utf-8');
-    products = JSON.parse(data);
+  products = JSON.parse(fs.readFileSync(path.resolve(__dirname, './productos.json'), 'utf-8'));
 } catch (err) {
-    console.error('Error', err);
+  throw new CustomError("READ_FILE_ERROR", `Error al leer el archivo: ${err.message}`);
 }
+
+
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
 
@@ -44,7 +44,6 @@ app.use(session({
   cookie: { secure: false, maxAge: 7200000 } // 2 horas
 }));
 
-//config de passport
 
 // app.js
 passport.use(new LocalStrategy({
@@ -124,35 +123,7 @@ app.use(routes);
 
 
 // Config de socket.io
-io.on('connection', (socket) => {
-  console.log('Nuevo usuario conectado');
-  
-  socket.on('newProduct', (product) => {
-    pm.addProduct(product.title, product.description, product.price, product.thumbnail, product.code, product.stock);
-    products = pm.getProducts();
-    io.emit('updateProducts', products);
-  });
 
-  socket.on('deleteProduct', (productId) => {
-    pm.deleteProduct(parseInt(productId));
-    products = pm.getProducts();
-    io.emit('updateProducts', products);
-    console.log('Productos actualizados'+ products)
-  });
-
-  socket.on('chat message', async data => {
-    let newMessage = await Message.create({ user: data.user, message: data.message });
-    newMessage = newMessage.toObject();
-    io.emit('chat message', newMessage);
-    console.log(data.user);
-    console.log(data.message)
-
-  });
-
-  
-
-  
-});
 
 const adminEmail = process.env.ADMIN_EMAIL;
 const adminPassword = process.env.ADMIN_PASSWORD;

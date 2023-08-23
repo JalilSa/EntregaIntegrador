@@ -1,25 +1,62 @@
+<h1>Lista de productos</h1>
+<ul id="product-list">
+  {{#each products}}
+    <li>
+      <h2>{{this.title}}</h2>
+      <p>{{this.description}}</p>
+      <p>{{this.price}}</p>
+      <button data-product-id="{{this.id}}">Añadir al carrito</button> <!-- Cambiamos _id por id -->
+    </li>
+  {{/each}}
+</ul>
+<a href="/cart"><button>Ver carrito</button></a>
 
+<script>
+  var socket = io();
 
-    <h1>Lista de productos</h1>
-    <ul id="product-list">
-      {{#each products}}
-        <li>
-          <h2>{{this.title}}</h2>
-          <p>{{this.description}}</p>
-          <p>{{this.price}}</p>
-        </li>
-      {{/each}}
-    </ul>
-    <script>
-      var socket = io();
-      socket.on('updateProducts', function (newProducts) {
-        var productList = document.getElementById('product-list');
-        productList.innerHTML = '';
-        newProducts.forEach(function(product) {
-          var productItem = document.createElement('li');
-          productItem.innerHTML = '<h2>' + product.title + '</h2><p>' + product.description + '</p><p>' + product.price + '</p>';
-          productList.appendChild(productItem);
-        });
+  socket.on('updateProducts', function(newProducts) {
+    const productList = document.getElementById('product-list');
+    productList.innerHTML = '';
+    newProducts.forEach(function(product) {
+      const productItem = document.createElement('li');
+      productItem.innerHTML = `
+        <h2>${product.title}</h2>
+        <p>${product.description}</p>
+        <p>${product.price}</p>
+        <button data-product-id="${product.id}">Añadir al carrito</button> <!-- Cambiamos _id por id -->
+      `;
+      productList.appendChild(productItem);
+    });
+    attachEventToButtons();
+  });
+
+  function addToCart(id) { // Cambiamos productId por id
+    fetch('/cart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantity: 1, id }) // Cambiamos productId por id
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log(data);
+      alert(data.message || "Producto añadido al carrito");
+    })
+    .catch(error => {
+      console.error('Error:', error);
+    });
+  }
+
+  function attachEventToButtons() {
+    const buttons = document.querySelectorAll('[data-product-id]');
+    buttons.forEach(button => {
+      button.addEventListener('click', function() {
+        const productId = button.getAttribute('data-product-id');
+        addToCart(productId); // Mantenemos addToCart(productId) ya que estamos extrayendo el ID con el nombre productId aquí
       });
-    </script>
-  </body>
+    });
+  }
+
+  // Adjuntar eventos cuando la página se carga por primera vez
+  attachEventToButtons();
+
+</script>
