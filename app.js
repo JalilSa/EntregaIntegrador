@@ -15,11 +15,12 @@ import dotenv from 'dotenv';
 import routes from './routes/rutas.js';
 import configureSockets from './config/socketconfig.js';
 import { CustomError, ErrorDictionary } from './errorHandler.js';
+import logger from './config/logger.js';
 
 dotenv.config();
 const app = express();
 connectDB();
-const httpServer = app.listen(8080, () => console.log(`Server running`));
+const httpServer = app.listen(8080, () => logger.info(`Server running`));
 
 const messageManager = new MessageManagerDB
 const io = configureSockets(httpServer);
@@ -139,16 +140,16 @@ UserModel.findOne({ email: adminEmail }).then(user => {
     });
 
     adminUser.save().then(() => {
-      console.log('Usuario administrador creado');
+      logger.info('Usuario administrador creado');
     }).catch(err => {
-      console.error('No se pudo crear el usuario administrador', err);
+      logger.error(`No se pudo crear el usuario administrador: ${err.message}`);
     });
   } else {
-    console.log('El usuario administrador ya existe');
+    logger.info('Usuario administrador ya existe');
   }
 }).catch(err => {
-  console.error('Error comprobando la existencia del usuario administrador', err);
+  logger.error(`Buscando por el usuario administrador: ${err.message}`);
 });
 
-
+//test logger
 

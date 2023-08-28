@@ -17,16 +17,26 @@ import CartManager from '../CartManager.js'
 import TicketModel from '../dao/models/ticketModel.js';
 import { generateMockProducts } from '../mocking.js';
 import { CustomError, ErrorDictionary } from '../errorHandler.js';
-
+import logger from '../config/logger.js';
 
 const pm = new ProductManager('../productos.json');
-const cm = new CartManager('../carrito.json', pm)
+const cm = new CartManager('../carrito.json', pm);
+
+
+router.get('/loggerTest', (req, res) => {
+  logger.debug('This is a debug log');
+  logger.http('This is a http log');
+  logger.info('This is an info log');
+  logger.error('This is an error log');
+  res.send('Logs generated! Check your console and errors.log file.');
+});
+
 
 try {
   fs.writeFileSync('./test.json', JSON.stringify({ message: "Hello, World!" }, null, 2));
-  console.log("Archivo escrito exitosamente!");
+  logger.info("Archivo escrito exitosamente!");
 } catch (error) {
-  console.error("Error al escribir el archivo:", error.message);
+  logger.error("Error al escribir el archivo:", error.message);
 }
 router.get('/mockingproducts', (req, res) => {
   const products = generateMockProducts();
@@ -44,7 +54,7 @@ router.post('/api/addProduct', (req, res) => {
       pm.addProduct(title, description, price, thumbnail, code, stock);
       res.json({ success: true });
   } catch (error) {
-      console.error(error);
+      logger.error(error);
       res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -58,30 +68,30 @@ const __dirname = dirname(__filename);
 // Rutas de vistas
 router.post('/create-ticket', async (req, res) => {
   try {
-    console.log("Inicio del endpoint /create-ticket");
+    logger.info("Inicio del endpoint /create-ticket");
 
     const { amount, purchaser } = req.body;
 
-    console.log("Datos recibidos:", { amount, purchaser });
+    logger.info("Datos recibidos:", { amount, purchaser });
     
     const code = `TCKT-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-    console.log("Código generado:", code);
+    logger.info("Código generado:", code);
 
     const ticket = new TicketModel({ code, amount, purchaser });
-    console.log("Instancia de TicketModel creada:", ticket);
+    logger.info("Instancia de TicketModel creada:", ticket);
 
     await ticket.save();
-    console.log("Ticket guardado en la base de datos");
+    logger.info("Ticket guardado en la base de datos");
 
     cm.clearCart();
-    console.log("Carrito limpiado");
+    logger.info("Carrito limpiado");
 
     res.json({ success: true });
-    console.log("Respuesta exitosa enviada");
+    logger.info("Respuesta exitosa enviada");
   } catch (error) {
-    console.error('Error al crear el ticket:', error.message);
+    logger.error('Error al crear el ticket:', error.message);
     res.status(500).json({ success: false, message: error.message });
-    console.log("Error enviado en la respuesta");
+    logger.info("Error enviado en la respuesta");
   }
 });
 
@@ -92,30 +102,30 @@ router.get('/current', (req, res) => {
   res.json(userDto);
 });
 router.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
+  logger.info(`${req.method} ${req.path}`);
   next();
 });
 
 router.post('/cart', (req, res) => {
-  console.log("Inicio del endpoint /cart");
+  logger.info("Inicio del endpoint /cart");
 
   const { id, quantity } = req.body;
-  console.log("Datos recibidos del cuerpo:", { id, quantity });
+  logger.info("Datos recibidos del cuerpo:", { id, quantity });
 
   if (!id || typeof quantity !== 'number') {
-    console.log("Datos inválidos recibidos");
+    logger.info("Datos inválidos recibidos");
     return res.status(400).json({ message: 'Datos inválidos' });
   }
 
   try {
     cm.addItem({ id, quantity }); // Cambiamos pid por id
-    console.log("Producto añadido al manager del carrito");
+    logger.info("Producto añadido al manager del carrito");
     res.json({ message: 'Producto añadido al carrito' });
-    console.log("Respuesta exitosa enviada");
+    logger.info("Respuesta exitosa enviada");
   } catch (error) {
-    console.error('Error añadiendo al carrito:', error);
+    logger.error('Error añadiendo al carrito:', error);
     res.status(500).json({ message: 'Error al añadir el producto al carrito' });
-    console.log("Error enviado en la respuesta");
+    logger.info("Error enviado en la respuesta");
   }
 });
 
@@ -129,7 +139,7 @@ router.get('/cart', (req, res) => {
 
     
     if (!productInfo) {
-      console.error(`No se encontró producto con ID: ${cartItem.id}`);
+      logger.error(`No se encontró producto con ID: ${cartItem.id}`);
       return cartItem
     }
 
@@ -212,7 +222,7 @@ router.get('/', async (req, res) => {
       await user.save();
       res.redirect('/login');
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       if (err.code === 11000) {
         // Código de error de MongoDB para "Duplicate Key"
         if (err.keyPattern.email) {
@@ -273,7 +283,7 @@ router.get('/', async (req, res) => {
     const data = fs.readFileSync(path.resolve(__dirname, '../productos.json'), 'utf-8');
     products = JSON.parse(data);
 } catch (err) {
-    console.error('Error', err);
+    logger.error('Error', err);
 }
 
 router.get('/', async (req, res) => {
@@ -302,7 +312,7 @@ router.get('/', async (req, res) => {
       nextLink,
     });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({
       status: 'error',
       message: 'Error al obtener los productos',
@@ -319,7 +329,7 @@ router.get('/:pid', async (req, res) => {
       res.json(product);
     }
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).send('Error al obtener el producto');
   }
 });
@@ -354,30 +364,30 @@ try {
   pm.addProduct('Producto 3', 'Descripción del producto 3', 132.99, 'https://ruta/imagen3.jpg', 'COD3', 50);
 
   // Muestra todos los productos
-  console.log(pm.getProducts());
+  logger.info(pm.getProducts());
 
   // Muestra un producto específico
-  console.log(pm.getProductById(1));
+  logger.info(pm.getProductById(1));
 
   // Actualiza un producto
   pm.updateProduct(1, { title: 'Nuevo título', price: 99.99 });
-  console.log(pm.getProductById(1));
+  logger.info(pm.getProductById(1));
 
   // Elimina un producto
   pm.deleteProduct(2);
-  console.log(pm.getProducts());
+  logger.info(pm.getProducts());
 
 } catch (error) {
   // Si ocurre algún error en el bloque try, se manejará aquí
   if (error instanceof CustomError) {
     if (error.type === "PRODUCT_EXISTS") {
-      console.error("El producto ya existe, no se puede agregar de nuevo.");
+      logger.error("El producto ya existe, no se puede agregar de nuevo.");
     } else if (error.type === "MISSING_FIELDS") {
-      console.error("Faltan campos obligatorios para agregar el producto.");
+      logger.error("Faltan campos obligatorios para agregar el producto.");
     } // Aquí puedes continuar con más condicionales 'else if' para manejar otros tipos de errores personalizados si los tienes.
   } else {
     // Para cualquier otro tipo de error que no sea CustomError
-    console.error("Ocurrió un error:", error.message);
+    logger.error("Ocurrió un error:", error.message);
   }
 }
 
