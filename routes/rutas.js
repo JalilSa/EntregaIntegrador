@@ -18,10 +18,74 @@ import TicketModel from '../dao/models/ticketModel.js';
 import { generateMockProducts } from '../mocking.js';
 import { CustomError, ErrorDictionary } from '../errorHandler.js';
 import logger from '../config/logger.js';
+import transporter from '../MailManager.js';
+import session from 'express-session';
+import { Strategy as LocalStrategy } from 'passport-local';
 
 const pm = new ProductManager('../productos.json');
 const cm = new CartManager('../carrito.json', pm);
+let products = [];
+let cartProducts = cm.getCart
+const messageManager = new MessageManagerDB
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+router.use(session({
+  secret: 'secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false, maxAge: 7200000 } // 2 horas
+}));
+passport.use(new LocalStrategy({
+  usernameField: 'email',
+  passwordField: 'password'
+}, async (email, password, done) => {
+  console.log("Autenticando usuario local con email:", email);
+  try {
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      console.log("Usuario no encontrado:", email);
+      return done(null, false);
+    }
+    if (!user.comparePassword(password)) {
+      console.log("Contraseña incorrecta para el usuario:", email);
+      return done(null, false);
+    }
+    console.log("Usuario autenticado exitosamente:", email);
+    return done(null, user);
+  } catch (err) {
+    console.error("Error durante la autenticación:", err.message);
+    done(err);
+  }
+}));
 
+
+
+router.use(express.json());
+router.use(express.urlencoded({extended: true}));
+
+// setup express session
+
+
+// Configuración de Passport
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await UserModel.findById(id);
+    done(null, user);
+  } catch (error) {
+    done(error);
+  }
+});
+
+
+
+
+
+router.use(passport.initialize());
+router.use(passport.session());
 
 router.get('/loggerTest', (req, res) => {
   logger.debug('This is a debug log');
@@ -43,6 +107,54 @@ router.get('/mockingproducts', (req, res) => {
   res.json(products);
 });
 
+  
+router.get('/auth/github',
+passport.authenticate('github', { scope: [ 'user:email' ] }));
+
+
+
+router.get('/auth/github/callback', 
+passport.authenticate('github', { failureRedirect: '/login' }),
+function(req, res) {
+  console.log("Usuario autenticado con GitHub. Usuario:", req.user);
+  req.session.user = req.user;
+  res.redirect('/');
+});
+
+router.get('/logout', authMiddleware, (req, res) => {
+  console.log("Usuario solicitó cierre de sesión. Usuario:", req.session.user);
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Error al cerrar sesión:", err.message);
+      res.status().send('No se pudo cerrar la sesión');
+    } else {
+      res.redirect('/login');
+    }
+  });
+});
+
+router.post('/login', (req, res, next) => {
+  passport.authenticate('local', (err, user, info) => {
+    if (err) {
+      console.error("Error en la autenticación:", err);
+      return next(err);
+    }
+    if (!user) {
+      console.log("Autenticación fallida. Razón:", info.message);
+      return res.redirect('/login');
+    }
+    req.logIn(user, function(err) {
+      if (err) {
+        console.error("Error al iniciar sesión:", err);
+        return next(err);
+      }
+      console.log("Usuario autenticado exitosamente:", user);
+      return res.redirect('/home');
+    });
+  })(req, res, next);
+});
+
+
 
 router.get('/productEditor',isAdmin , (req,res)=> {
   res.render('productEditor');
@@ -55,15 +167,11 @@ router.post('/api/addProduct', (req, res) => {
       res.json({ success: true });
   } catch (error) {
       logger.error(error);
-      res.status(500).json({ success: false, message: error.message });
+      res.status().json({ success: false, message: error.message });
   }
 });
 
-let products = [];
-let cartProducts = cm.getCart
-const messageManager = new MessageManagerDB
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+
 
 // Rutas de vistas
 router.post('/create-ticket', async (req, res) => {
@@ -90,7 +198,7 @@ router.post('/create-ticket', async (req, res) => {
     logger.info("Respuesta exitosa enviada");
   } catch (error) {
     logger.error('Error al crear el ticket:', error.message);
-    res.status(500).json({ success: false, message: error.message });
+    res.status().json({ success: false, message: error.message });
     logger.info("Error enviado en la respuesta");
   }
 });
@@ -124,7 +232,7 @@ router.post('/cart', (req, res) => {
     logger.info("Respuesta exitosa enviada");
   } catch (error) {
     logger.error('Error añadiendo al carrito:', error);
-    res.status(500).json({ message: 'Error al añadir el producto al carrito' });
+    res.status().json({ message: 'Error al añadir el producto al carrito' });
     logger.info("Error enviado en la respuesta");
   }
 });
@@ -230,53 +338,14 @@ router.get('/', async (req, res) => {
         }
       } else {
         // Si no es un error de duplicado, enviar el error completo
-        res.status(500).send(err);
+        res.status().send(err);
       }
     }
   });
   
   
-  
-  router.get('/auth/github',
-    passport.authenticate('github', { scope: [ 'user:email' ] }));
-  
-  
-  
-  router.get('/auth/github/callback', 
-    passport.authenticate('github', { failureRedirect: '/login' }),
-    function(req, res) {
-    req.session.user = req.user;
-    res.redirect('/');
-  });
-  
-  
-  
-  router.get('/logout', authMiddleware, (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        res.status(500).send('No se pudo cerrar la sesión');
-      } else {
-        res.redirect('/login');
-      }
-    });
-  });
-  
-  router.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    const user = await UserModel.findOne({ username: username });
-  
-    if (user) {
-      if (password && user.password && bcrypt.compareSync(password, user.password)) {
-        req.session.user = user;
-        return res.redirect('/home');
-      } else {
-        res.status(401).send('La contraseña es incorrecta');
-      }
-    } else {
-      res.status(401).send('El usuario no existe');
-    }
-  });
-  
+
+
 
 
   try {
@@ -313,7 +382,7 @@ router.get('/', async (req, res) => {
     });
   } catch (error) {
     logger.error(error);
-    res.status(500).json({
+    res.status().json({
       status: 'error',
       message: 'Error al obtener los productos',
     });
@@ -330,7 +399,7 @@ router.get('/:pid', async (req, res) => {
     }
   } catch (error) {
     logger.error(error);
-    res.status(500).send('Error al obtener el producto');
+    res.status().send('Error al obtener el producto');
   }
 });
 
@@ -349,6 +418,78 @@ router.put('/:pid', (req, res) => {
 router.delete('/:pid', (req, res) => {
   pm.deleteProduct(parseInt(req.params.pid));
   res.send('Producto eliminado');
+});
+
+router.post('/request-password-reset', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      throw new CustomError("USER_NOT_FOUND", "Usuario no encontrado");
+    }
+
+    const token = (Math.random() + 1).toString(36).substring(7);
+    const hashedToken = await bcrypt.hash(token, 10);
+    const now = new Date();
+    const tokenExpiration = new Date(now.getTime() + 60 * 60 * 1000); // 1 hora
+
+    user.resetToken = hashedToken;
+    user.resetTokenExpiration = tokenExpiration;
+    await user.save();
+
+    transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Restablecimiento de contraseña',
+      html: `<a href="http://localhost:8080/reset-password?token=${token}">Click here to reset your password</a>`
+    });
+    
+    res.send("Correo enviado exitosamente");
+  } catch (err) {
+    logger.error(err.message);
+    res.status(500).send(`Error del servidor: ${err.message}`);
+
+  }
+});
+
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    const user = await UserModel.findOne({
+      resetTokenExpiration: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      throw new CustomError("TOKEN_EXPIRED", "Token expirado");
+    }
+
+    const isValid = await bcrypt.compare(token, user.resetToken);
+
+    if (!isValid) {
+      throw new CustomError("INVALID_TOKEN", "Token inválido");
+    }
+
+    if (user.comparePassword(newPassword)) {
+      throw new CustomError("SAME_PASSWORD", "La nueva contraseña no puede ser igual a la anterior");
+    }
+
+    user.password = newPassword;
+    user.resetToken = undefined;
+    user.resetTokenExpiration = undefined;
+    await user.save();
+
+    res.send("Contraseña actualizada exitosamente");
+  } catch (err) {
+    logger.error(err.message);
+    res.status().send('Error del servidor');
+  }
+});
+router.get('/reset-password', (req, res) => {
+  const token = req.query.token;
+  if (!token) {
+    return res.status(400).send('Token no proporcionado');
+  }
+  res.render('password-reset', { token });
 });
 
 

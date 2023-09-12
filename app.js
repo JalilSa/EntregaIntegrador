@@ -9,13 +9,17 @@ import MessageManagerDB from './dao/MessageManagerDB.js'
 import {UserModel} from './dao/models/usermodel.js';
 import bcrypt from 'bcrypt';
 import passport from 'passport';
-import { Strategy as LocalStrategy } from 'passport-local';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import dotenv from 'dotenv';
 import routes from './routes/rutas.js';
 import configureSockets from './config/socketconfig.js';
 import { CustomError, ErrorDictionary } from './errorHandler.js';
 import logger from './config/logger.js';
+
+
+// Rutas de vistas
+app.use(routes); 
+
 
 dotenv.config();
 const app = express();
@@ -34,6 +38,8 @@ try {
 }
 
 
+app.use(passport.initialize());
+app.use(passport.session());
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
 
@@ -47,23 +53,7 @@ app.use(session({
 
 
 // app.js
-passport.use(new LocalStrategy({
-  usernameField: 'email',
-  passwordField: 'password'
-},
-async (email, password, done) => {
-  try {
-    const user = await UserModel.findOne({ email });
-    if (!user) return done(null, false);
-    if (!user.comparePassword(password)) return done(null, false);
-    return done(null, user);
-  } catch (err) {
-    done(err);
-  }
-}));
-
 passport.use(new GitHubStrategy({
-  clientID: "Iv1.6a7eeb5d8e282978",
   clientID: process.env.client_ID,
   clientSecret: process.env.clientSecret,
 },
@@ -100,8 +90,6 @@ passport.deserializeUser(async (id, done) => {
 });
 
 
-app.use(passport.initialize());
-app.use(passport.session());
 
 
 
@@ -117,8 +105,7 @@ app.use(session({
   saveUninitialized: false,
 }));
 
-// Rutas de vistas
-app.use(routes); 
+
 
 
 

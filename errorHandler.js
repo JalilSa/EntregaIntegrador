@@ -5,6 +5,7 @@ export const ErrorDictionary = {
   READ_FILE_ERROR: 'Error al leer el archivo',
   WRITE_FILE_ERROR: 'Error al escribir en el archivo',
   PRODUCT_EXISTS: 'El producto ya existe',
+  USER_NOT_FOUND: 'Usuario no encontrado',
 };
 
 

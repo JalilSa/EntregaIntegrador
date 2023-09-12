@@ -4,5 +4,8 @@ export const isAdmin = (req, res, next) => {
       return next();
     }
     res.status(403).send('Acceso denegado');
+    console.log("User object:", req.user);
+  console.log("Is authenticated?", req.isAuthenticated());
+
   };
   

@@ -1,25 +1,29 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <title>Inicio</title>
-    <script src="/socket.io/socket.io.js"></script>
 <html lang="es-AR">
 <head>
     <meta charset="UTF-8" />
     <link rel="profile" href="http://gmpg.org/xfn/11" />
+    <script src="/socket.io/socket.io.js"></script>
     <title>{{title}}</title>
 </head>
 <body>
 {{> header}}
 {{#if user}}
-  <h1>Bienvenido, {{user.username}}!</h1>
+  <h1>Bienvenido, 
+      {{#if user.username}}
+          {{user.username}}
+      {{else}}
+          {{user.first_name}}
+      {{/if}}!
+  </h1>
   <a href="/logout">Cerrar sesión</a>
   <a href="/loggerTest">testlogs</a>
+  <a href="/productEditor">Revisar productos</a><br>
   {{{body}}}
 {{else}}
  {{{body}}}
+ <a href="/request-password-reset">¿Olvidaste tu contraseña?</a>
 {{/if}}
-
 
 </body>
 </html>
