@@ -15,14 +15,16 @@ import routes from './routes/rutas.js';
 import configureSockets from './config/socketconfig.js';
 import { CustomError, ErrorDictionary } from './errorHandler.js';
 import logger from './config/logger.js';
-
-
+import swaggerUi from 'swagger-ui-express';
+import swaggerJsDoc from 'swagger-jsdoc';
+import swaggerOptions from './swagger.js';
+const app = express();
 // Rutas de vistas
 app.use(routes); 
 
 
 dotenv.config();
-const app = express();
+
 connectDB();
 const httpServer = app.listen(8080, () => logger.info(`Server running`));
 
@@ -51,6 +53,8 @@ app.use(session({
   cookie: { secure: false, maxAge: 7200000 } // 2 horas
 }));
 
+const swaggerDocs = swaggerJsDoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // app.js
 passport.use(new GitHubStrategy({

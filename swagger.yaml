@@ -1,0 +1,82 @@
+
+servers:
+  - url: 'http://localhost:8080'
+    description: Servidor de desarrollo local
+
+paths: 
+
+  /productEditor:
+    get:
+      summary: Editor de producto
+      responses:
+        200:
+          description: Vista del editor
+
+  /api/addProduct:
+    post:
+      summary: Añadir un producto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        200:
+          description: Producto añadido con éxito
+        400:
+          description: Error al añadir producto
+
+  
+  /cart:
+    post:
+      summary: Añadir producto al carrito
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                quantity:
+                  type: integer
+      responses:
+        200:
+          description: Producto añadido al carrito
+        400:
+          description: Error al añadir producto al carrito
+    get:
+      summary: Obtener el carrito
+      responses:
+        200:
+          description: Detalles del carrito
+
+components:
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        thumbnail:
+          type: string
+    ProductInput:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        thumbnail:
+          type: string
+

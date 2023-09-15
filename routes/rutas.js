@@ -107,6 +107,13 @@ router.get('/mockingproducts', (req, res) => {
   res.json(products);
 });
 
+////////////////////////
+//RUTAS DOCUMENTCION
+////////////////////////
+
+
+
+
   
 router.get('/auth/github',
 passport.authenticate('github', { scope: [ 'user:email' ] }));
@@ -155,10 +162,88 @@ router.post('/login', (req, res, next) => {
 });
 
 
-
+/**
+ * @swagger
+ * components:
+ *   securitySchemes:
+ *     userRole:
+ *       type: apiKey
+ *       in: header
+ *       name: x-access-token
+ *       description: Token JWT que contiene el rol del usuario
+ * 
+ * /productEditor:
+ *   get:
+ *     tags:
+ *       - Product Management
+ *     description: Página del editor de productos. Acceso solo para usuarios con rol de 'admin'.
+ *     security:
+ *       - userRole: []
+ *     responses:
+ *       200:
+ *         description: Retorna la vista del editor de productos
+ *       403:
+ *         description: No autorizado
+ */
 router.get('/productEditor',isAdmin , (req,res)=> {
   res.render('productEditor');
 })
+/**
+ * @swagger
+ * /api/addProduct:
+ *   post:
+ *     tags:
+ *       - Product Management
+ *     description: Agregar un nuevo producto a través de la API
+ *     parameters:
+ *       - name: title
+ *         description: Título del producto
+ *         in: body
+ *         required: true
+ *         type: string
+ *       - name: description
+ *         description: Descripción del producto
+ *         in: body
+ *         required: true
+ *         type: string
+ *       - name: price
+ *         description: Precio del producto
+ *         in: body
+ *         required: true
+ *         type: number
+ *       - name: thumbnail
+ *         description: Miniatura del producto
+ *         in: body
+ *         type: string
+ *       - name: code
+ *         description: Código del producto
+ *         in: body
+ *         type: string
+ *       - name: stock
+ *         description: Stock del producto
+ *         in: body
+ *         required: true
+ *         type: number
+ *     responses:
+ *       200:
+ *         description: Producto agregado exitosamente
+ *         schema:
+ *           type: object
+ *           properties:
+ *             success:
+ *               type: boolean
+ *       500:
+ *         description: Error al agregar el producto
+ *         schema:
+ *           type: object
+ *           properties:
+ *             success:
+ *               type: boolean
+ *             message:
+ *               type: string
+ */
+
+
 router.post('/api/addProduct', (req, res) => {
   const { title, description, price, thumbnail, code, stock } = req.body;
 
@@ -213,7 +298,32 @@ router.use((req, res, next) => {
   logger.info(`${req.method} ${req.path}`);
   next();
 });
-
+/**
+ * @swagger
+ * /cart:
+ *   post:
+ *     tags:
+ *       - Cart
+ *     description: Añadir un producto al carrito
+ *     parameters:
+ *       - name: id
+ *         description: ID del producto
+ *         in: body
+ *         required: true
+ *         type: string
+ *       - name: quantity
+ *         description: Cantidad del producto
+ *         in: body
+ *         required: true
+ *         type: number
+ *     responses:
+ *       200:
+ *         description: Producto añadido al carrito exitosamente
+ *       400:
+ *         description: Datos inválidos
+ *       500:
+ *         description: Error al añadir producto al carrito
+ */
 router.post('/cart', (req, res) => {
   logger.info("Inicio del endpoint /cart");
 
@@ -237,7 +347,17 @@ router.post('/cart', (req, res) => {
   }
 });
 
-
+/**
+ * @swagger
+ * /cart:
+ *   get:
+ *     tags:
+ *       - Cart
+ *     description: Obtener detalles del carrito
+ *     responses:
+ *       200:
+ *         description: Detalles del carrito
+ */
 router.get('/cart', (req, res) => {
   const cartData = cm.getCart();
   const allProducts = products;
@@ -296,7 +416,19 @@ router.get('/', async (req, res) => {
     }
   });
   
-  
+  /**
+ * @swagger
+ * /realTimeProducts:
+ *   get:
+ *     tags:
+ *       - Products
+ *     description: Ver productos en tiempo real
+ *     responses:
+ *       200:
+ *         description: Lista de productos en tiempo real
+ *       302:
+ *         description: Redirigido al login
+ */
   
   router.get('/realTimeProducts', isUser, (req, res) => {
     if (req.session.user) {
@@ -389,6 +521,28 @@ router.get('/', async (req, res) => {
   }
 });
 
+
+/**
+ * @swagger
+ * /{pid}:
+ *   get:
+ *     tags:
+ *       - Products
+ *     description: Obtener un producto específico por ID
+ *     parameters:
+ *       - name: pid
+ *         description: ID del producto
+ *         in: path
+ *         required: true
+ *         type: integer
+ *     responses:
+ *       200:
+ *         description: Detalles del producto
+ *       404:
+ *         description: Producto no encontrado
+ *       500:
+ *         description: Error al obtener el producto
+ */
 router.get('/:pid', async (req, res) => {
   try {
     const product = await pm.getProductById(parseInt(req.params.pid));
@@ -402,19 +556,67 @@ router.get('/:pid', async (req, res) => {
     res.status().send('Error al obtener el producto');
   }
 });
-
+/**
+ * @swagger
+ * /:
+ *   post:
+ *     tags:
+ *       - Products
+ *     description: Añadir un nuevo producto
+ *     parameters:
+ *       - name: title
+ *         description: Título del producto
+ *         in: body
+ *         required: true
+ *         type: string
+ *     responses:
+ *       201:
+ *         description: Producto creado exitosamente
+ */
 router.post('/', (req, res) => {
   const { title, description, price, thumbnail, code, stock } = req.body;
   pm.addProduct(title, description, price, thumbnail, code, stock);
   res.status(201).send('Producto agregado');
 });
-
+/**
+ * @swagger
+ * /:
+ *   post:
+ *     tags:
+ *       - Products
+ *     description: Añadir un nuevo producto
+ *     parameters:
+ *       - name: title
+ *         description: Título del producto
+ *         in: body
+ *         required: true
+ *         type: string
+ *     responses:
+ *       201:
+ *         description: Producto creado exitosamente
+ */
 router.put('/:pid', (req, res) => {
   const { title, description, price, thumbnail, code, stock } = req.body;
   pm.updateProduct(parseInt(req.params.pid), { title, description, price, thumbnail, code, stock });
   res.send('Producto actualizado');
 });
-
+/**
+ * @swagger
+ * /{pid}:
+ *   delete:
+ *     tags:
+ *       - Products
+ *     description: Eliminar un producto por ID
+ *     parameters:
+ *       - name: pid
+ *         description: ID del producto
+ *         in: path
+ *         required: true
+ *         type: integer
+ *     responses:
+ *       200:
+ *         description: Producto eliminado exitosamente
+ */
 router.delete('/:pid', (req, res) => {
   pm.deleteProduct(parseInt(req.params.pid));
   res.send('Producto eliminado');
