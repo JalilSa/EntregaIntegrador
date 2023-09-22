@@ -19,10 +19,9 @@ describe('Carts Router', () => {
   it('should add item to cart', async () => {
     const res = await request(app).post('/cart').send({ id: '1', quantity: 2 });
     expect(res.statusCode).to.equal(200);
-    // ... otras expectativas
+
   });
 
-  // ... otras pruebas para la ruta de carritos
 });
 
 // Bloque de pruebas para la ruta de sesiones
@@ -30,8 +29,6 @@ describe('Sessions Router', () => {
   it('should register a user', async () => {
     const res = await request(app).post('/register').send({ email: 'test@example.com', password: 'password123' });
     expect(res.statusCode).to.equal(200);
-    // ... otras expectativas
-  });
 
-  // ... otras pruebas para la ruta de sesiones
+  });
 });
