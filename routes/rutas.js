@@ -10,82 +10,112 @@ import ProductManager from '../ProductManager.js';
 import MessageManagerDB from '../dao/MessageManagerDB.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { isAdmin } from '../middlewares/isAdmin.js';
-import { isUser } from '../middlewares/isUser.js';
 import { userToDto } from '../middlewares/userToDto.js';
 import CartManager from '../CartManager.js'
 import TicketModel from '../dao/models/ticketModel.js';
 import { generateMockProducts } from '../mocking.js';
 import { CustomError, ErrorDictionary } from '../errorHandler.js';
-import logger from '../config/logger.js';
-import transporter from '../MailManager.js';
-import session from 'express-session';
-import { Strategy as LocalStrategy } from 'passport-local';
+import logger from '../config/logger.js';;
+import jwt from 'jsonwebtoken';
+import { sendResetPasswordEmail } from '../mailer.js';
+
+const isUser = (req, res, next) => {
+  if (req.session && req.session.user) {
+      next();
+  } else {
+      res.status(401).send('Acceso denegado: Inicie sesión primero.');
+  }
+};
+
+const isAdmin = (req, res, next) => {
+  if (req.session && req.session.user && req.session.user.role === 'admin') {
+      next();
+  } else {
+      res.status(403).send('Acceso denegado: No tiene permisos de administrador.');
+  }
+};
+const isAdminOrPremium = (req, res, next) => {
+  if (req.session && req.session.user && (req.session.user.role === 'admin' || req.session.user.role === 'premium')) {
+      next();
+  } else {
+      res.status(403).send('Acceso denegado: No tiene permisos suficientes.');
+  }
+};
 
 const pm = new ProductManager('../productos.json');
 const cm = new CartManager('../carrito.json', pm);
-let products = [];
-let cartProducts = cm.getCart
-const messageManager = new MessageManagerDB
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-router.use(session({
-  secret: 'secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: false, maxAge: 7200000 } // 2 horas
-}));
-passport.use(new LocalStrategy({
-  usernameField: 'email',
-  passwordField: 'password'
-}, async (email, password, done) => {
-  console.log("Autenticando usuario local con email:", email);
+
+router.put('/api/users/premium/:uid', async (req, res) => {
   try {
-    const user = await UserModel.findOne({ email });
+    const user = await UserModel.findById(req.params.uid);
     if (!user) {
-      console.log("Usuario no encontrado:", email);
-      return done(null, false);
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
-    if (!user.comparePassword(password)) {
-      console.log("Contraseña incorrecta para el usuario:", email);
-      return done(null, false);
+
+    // Toggle user's role between 'user' and 'premium'
+    if (user.role === 'user') {
+      user.role = 'premium';
+    } else if (user.role === 'premium') {
+      user.role = 'user';
     }
-    console.log("Usuario autenticado exitosamente:", email);
-    return done(null, user);
-  } catch (err) {
-    console.error("Error durante la autenticación:", err.message);
-    done(err);
-  }
-}));
 
-
-
-router.use(express.json());
-router.use(express.urlencoded({extended: true}));
-
-// setup express session
-
-
-// Configuración de Passport
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-  try {
-    const user = await UserModel.findById(id);
-    done(null, user);
+    await user.save();
+    res.json({ message: `Rol del usuario cambiado a ${user.role}` });
   } catch (error) {
-    done(error);
+    logger.error('Error cambiando el rol del usuario:', error);
+    res.status(500).json({ message: 'Error al cambiar el rol del usuario' });
   }
 });
 
+router.get('/auth/request-reset-password', (req, res) => {
+  console.log('Accediendo a la página de solicitud de restablecimiento de contraseña...');
+  res.render('request-reset-password');
+});
+
+router.post('/request-reset-password', async (req, res) => {
+  const { email } = req.body;
+  console.log(`Recibiendo solicitud de restablecimiento de contraseña para el correo: ${email}`);
+  
+  const user = await UserModel.findOne({ email });
+
+  if (!user) {
+      console.log(`Usuario no encontrado para el correo: ${email}`);
+      return res.status(400).send('Correo electrónico no encontrado.');
+  }
+
+  const token = jwt.sign({ id: user._id }, 'YOUR_SECRET_KEY', { expiresIn: '1h' });
+  console.log(`Token generado para el usuario (ID: ${user._id}): ${token}`);
+
+  user.resetPasswordToken = token;
+  user.resetPasswordExpires = Date.now() + 3600000; // 1 hora
+  
+  console.log(`Fecha y hora actuales: ${new Date(Date.now())}`);
+  console.log(`Fecha y hora de expiración del token: ${new Date(user.resetPasswordExpires)}`);
+
+  await user.save();
+  console.log('Token y hora de expiración guardados en la base de datos.');
+
+  await sendResetPasswordEmail(email, token);
+  console.log('Correo de recuperación enviado.');
+
+  res.send('Correo de recuperación enviado.');
+});
 
 
+router.get('/reset-password/:token', async (req, res) => {
+  const token = req.params.token;
+  const user = await UserModel.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+  });
 
+  if (!user) {
+      return res.send('El token es inválido o ha expirado.');
+  }
 
-router.use(passport.initialize());
-router.use(passport.session());
+  // Aquí, redirige al usuario a una página de restablecimiento de contraseña
+  res.render('reset-password');
+});
 
 router.get('/loggerTest', (req, res) => {
   logger.debug('This is a debug log');
@@ -107,156 +137,31 @@ router.get('/mockingproducts', (req, res) => {
   res.json(products);
 });
 
-////////////////////////
-//RUTAS DOCUMENTCION
-////////////////////////
 
-
-
-
-  
-router.get('/auth/github',
-passport.authenticate('github', { scope: [ 'user:email' ] }));
-
-
-
-router.get('/auth/github/callback', 
-passport.authenticate('github', { failureRedirect: '/login' }),
-function(req, res) {
-  console.log("Usuario autenticado con GitHub. Usuario:", req.user);
-  req.session.user = req.user;
-  res.redirect('/');
-});
-
-router.get('/logout', authMiddleware, (req, res) => {
-  console.log("Usuario solicitó cierre de sesión. Usuario:", req.session.user);
-  req.session.destroy((err) => {
-    if (err) {
-      console.error("Error al cerrar sesión:", err.message);
-      res.status().send('No se pudo cerrar la sesión');
-    } else {
-      res.redirect('/login');
-    }
-  });
-});
-
-router.post('/login', (req, res, next) => {
-  passport.authenticate('local', (err, user, info) => {
-    if (err) {
-      console.error("Error en la autenticación:", err);
-      return next(err);
-    }
-    if (!user) {
-      console.log("Autenticación fallida. Razón:", info.message);
-      return res.redirect('/login');
-    }
-    req.logIn(user, function(err) {
-      if (err) {
-        console.error("Error al iniciar sesión:", err);
-        return next(err);
-      }
-      console.log("Usuario autenticado exitosamente:", user);
-      return res.redirect('/home');
-    });
-  })(req, res, next);
-});
-
-
-/**
- * @swagger
- * components:
- *   securitySchemes:
- *     userRole:
- *       type: apiKey
- *       in: header
- *       name: x-access-token
- *       description: Token JWT que contiene el rol del usuario
- * 
- * /productEditor:
- *   get:
- *     tags:
- *       - Product Management
- *     description: Página del editor de productos. Acceso solo para usuarios con rol de 'admin'.
- *     security:
- *       - userRole: []
- *     responses:
- *       200:
- *         description: Retorna la vista del editor de productos
- *       403:
- *         description: No autorizado
- */
-router.get('/productEditor',isAdmin , (req,res)=> {
+router.get('/productEditor',isAdminOrPremium, (req,res)=> {
   res.render('productEditor');
 })
-/**
- * @swagger
- * /api/addProduct:
- *   post:
- *     tags:
- *       - Product Management
- *     description: Agregar un nuevo producto a través de la API
- *     parameters:
- *       - name: title
- *         description: Título del producto
- *         in: body
- *         required: true
- *         type: string
- *       - name: description
- *         description: Descripción del producto
- *         in: body
- *         required: true
- *         type: string
- *       - name: price
- *         description: Precio del producto
- *         in: body
- *         required: true
- *         type: number
- *       - name: thumbnail
- *         description: Miniatura del producto
- *         in: body
- *         type: string
- *       - name: code
- *         description: Código del producto
- *         in: body
- *         type: string
- *       - name: stock
- *         description: Stock del producto
- *         in: body
- *         required: true
- *         type: number
- *     responses:
- *       200:
- *         description: Producto agregado exitosamente
- *         schema:
- *           type: object
- *           properties:
- *             success:
- *               type: boolean
- *       500:
- *         description: Error al agregar el producto
- *         schema:
- *           type: object
- *           properties:
- *             success:
- *               type: boolean
- *             message:
- *               type: string
- */
-
-
 router.post('/api/addProduct', (req, res) => {
   const { title, description, price, thumbnail, code, stock } = req.body;
 
+  const ownerId = req.currentUser && req.currentUser.role === 'premium' ? req.currentUser._id : null; 
+
   try {
-      pm.addProduct(title, description, price, thumbnail, code, stock);
+      pm.addProduct(title, description, price, thumbnail, code, stock, ownerId);
       res.json({ success: true });
   } catch (error) {
       logger.error(error);
-      res.status().json({ success: false, message: error.message });
+      res.status(500).json({ success: false, message: error.message });
   }
 });
 
 
+
+let products = [];
+let cartProducts = cm.getCart
+const messageManager = new MessageManagerDB
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Rutas de vistas
 router.post('/create-ticket', async (req, res) => {
@@ -283,7 +188,7 @@ router.post('/create-ticket', async (req, res) => {
     logger.info("Respuesta exitosa enviada");
   } catch (error) {
     logger.error('Error al crear el ticket:', error.message);
-    res.status().json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
     logger.info("Error enviado en la respuesta");
   }
 });
@@ -298,33 +203,8 @@ router.use((req, res, next) => {
   logger.info(`${req.method} ${req.path}`);
   next();
 });
-/**
- * @swagger
- * /cart:
- *   post:
- *     tags:
- *       - Cart
- *     description: Añadir un producto al carrito
- *     parameters:
- *       - name: id
- *         description: ID del producto
- *         in: body
- *         required: true
- *         type: string
- *       - name: quantity
- *         description: Cantidad del producto
- *         in: body
- *         required: true
- *         type: number
- *     responses:
- *       200:
- *         description: Producto añadido al carrito exitosamente
- *       400:
- *         description: Datos inválidos
- *       500:
- *         description: Error al añadir producto al carrito
- */
-router.post('/cart', (req, res) => {
+
+router.post('/cart', async (req, res) => {
   logger.info("Inicio del endpoint /cart");
 
   const { id, quantity } = req.body;
@@ -335,6 +215,16 @@ router.post('/cart', (req, res) => {
     return res.status(400).json({ message: 'Datos inválidos' });
   }
 
+  // Check if the product exists and if it belongs to the user
+  const product = await Product.findById(id);
+  if (!product) {
+    return res.status(404).json({ message: 'Producto no encontrado' });
+  }
+
+  if (req.session.user && req.session.user.role === 'premium' && String(product.owner) === req.session.user.email) {
+    return res.status(403).json({ message: 'Un usuario premium no puede añadir a su carrito un producto que le pertenece' });
+  }
+
   try {
     cm.addItem({ id, quantity }); // Cambiamos pid por id
     logger.info("Producto añadido al manager del carrito");
@@ -342,22 +232,13 @@ router.post('/cart', (req, res) => {
     logger.info("Respuesta exitosa enviada");
   } catch (error) {
     logger.error('Error añadiendo al carrito:', error);
-    res.status().json({ message: 'Error al añadir el producto al carrito' });
+    res.status(500).json({ message: 'Error al añadir el producto al carrito' });
     logger.info("Error enviado en la respuesta");
   }
 });
 
-/**
- * @swagger
- * /cart:
- *   get:
- *     tags:
- *       - Cart
- *     description: Obtener detalles del carrito
- *     responses:
- *       200:
- *         description: Detalles del carrito
- */
+
+
 router.get('/cart', (req, res) => {
   const cartData = cm.getCart();
   const allProducts = products;
@@ -383,11 +264,14 @@ router.get('/cart', (req, res) => {
 });
 
 
-
 router.get('/', async (req, res) => {
-    res.render('main', { user: req.session ? req.session.user : undefined });
+  const user = req.session ? req.session.user : undefined;
+  res.render('main', { 
+      user: user, 
+      isUserPremium: user && user.role === 'premium' 
   });
-  
+});
+
   router.get('/login', (req, res) => {
     res.render('login'); 
   });
@@ -416,19 +300,7 @@ router.get('/', async (req, res) => {
     }
   });
   
-  /**
- * @swagger
- * /realTimeProducts:
- *   get:
- *     tags:
- *       - Products
- *     description: Ver productos en tiempo real
- *     responses:
- *       200:
- *         description: Lista de productos en tiempo real
- *       302:
- *         description: Redirigido al login
- */
+  
   
   router.get('/realTimeProducts', isUser, (req, res) => {
     if (req.session.user) {
@@ -444,11 +316,14 @@ router.get('/', async (req, res) => {
   })
   
   router.post('/register', async (req, res) => {
-    const { first_name, last_name, email, age, password } = req.body;
+    const { first_name, last_name, email, age, password, is_premium } = req.body;
   
     if (!email || !password) {
       return res.status(400).send('El email y la contraseña son obligatorios');
     }
+  
+    // Establecer el rol en base al checkbox
+    const role = is_premium ? 'premium' : 'user';
   
     try {
       const user = new UserModel({
@@ -457,6 +332,7 @@ router.get('/', async (req, res) => {
         email,
         age,
         password,
+        role  // Añadimos el rol al modelo
       });
   
       await user.save();
@@ -465,19 +341,66 @@ router.get('/', async (req, res) => {
       logger.error(err);
       if (err.code === 11000) {
         // Código de error de MongoDB para "Duplicate Key"
-        if (err.keyPattern.email) {
+        if (err.keyPattern && err.keyPattern.email) {
           res.status(400).send('Este email ya existe');
         }
       } else {
         // Si no es un error de duplicado, enviar el error completo
-        res.status().send(err);
+        res.status(500).send(err);
       }
     }
   });
   
+  router.get('/auth/github',
+    passport.authenticate('github', { scope: [ 'user:email' ] }));
   
-
-
+  
+  
+  router.get('/auth/github/callback', 
+    passport.authenticate('github', { failureRedirect: '/login' }),
+    function(req, res) {
+    req.session.user = req.user;
+    res.redirect('/');
+  });
+  
+  
+  
+  router.get('/logout', authMiddleware, (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        res.status(500).send('No se pudo cerrar la sesión');
+      } else {
+        res.redirect('/login');
+      }
+    });
+  });
+  
+  router.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+  
+    if (!email || !password) {
+      return res.status(400).send('Se requieren tanto el email como la contraseña');
+    }
+  
+    const user = await UserModel.findOne({ email });
+  
+    if (!user) {
+      return res.status(401).send('El usuario no existe');
+    }
+  
+    const isMatch = bcrypt.compareSync(password, user.password);
+    
+    if (!isMatch) {
+      return res.status(401).send('La contraseña es incorrecta');
+    }
+  
+    req.session.user = user;
+    return res.redirect('/home');
+  });
+  
+  
+  
+  
 
 
   try {
@@ -514,35 +437,13 @@ router.get('/', async (req, res) => {
     });
   } catch (error) {
     logger.error(error);
-    res.status().json({
+    res.status(500).json({
       status: 'error',
       message: 'Error al obtener los productos',
     });
   }
 });
 
-
-/**
- * @swagger
- * /{pid}:
- *   get:
- *     tags:
- *       - Products
- *     description: Obtener un producto específico por ID
- *     parameters:
- *       - name: pid
- *         description: ID del producto
- *         in: path
- *         required: true
- *         type: integer
- *     responses:
- *       200:
- *         description: Detalles del producto
- *       404:
- *         description: Producto no encontrado
- *       500:
- *         description: Error al obtener el producto
- */
 router.get('/:pid', async (req, res) => {
   try {
     const product = await pm.getProductById(parseInt(req.params.pid));
@@ -553,147 +454,47 @@ router.get('/:pid', async (req, res) => {
     }
   } catch (error) {
     logger.error(error);
-    res.status().send('Error al obtener el producto');
+    res.status(500).send('Error al obtener el producto');
   }
 });
-/**
- * @swagger
- * /:
- *   post:
- *     tags:
- *       - Products
- *     description: Añadir un nuevo producto
- *     parameters:
- *       - name: title
- *         description: Título del producto
- *         in: body
- *         required: true
- *         type: string
- *     responses:
- *       201:
- *         description: Producto creado exitosamente
- */
+
 router.post('/', (req, res) => {
   const { title, description, price, thumbnail, code, stock } = req.body;
   pm.addProduct(title, description, price, thumbnail, code, stock);
   res.status(201).send('Producto agregado');
 });
-/**
- * @swagger
- * /:
- *   post:
- *     tags:
- *       - Products
- *     description: Añadir un nuevo producto
- *     parameters:
- *       - name: title
- *         description: Título del producto
- *         in: body
- *         required: true
- *         type: string
- *     responses:
- *       201:
- *         description: Producto creado exitosamente
- */
-router.put('/:pid', (req, res) => {
-  const { title, description, price, thumbnail, code, stock } = req.body;
-  pm.updateProduct(parseInt(req.params.pid), { title, description, price, thumbnail, code, stock });
-  res.send('Producto actualizado');
-});
-/**
- * @swagger
- * /{pid}:
- *   delete:
- *     tags:
- *       - Products
- *     description: Eliminar un producto por ID
- *     parameters:
- *       - name: pid
- *         description: ID del producto
- *         in: path
- *         required: true
- *         type: integer
- *     responses:
- *       200:
- *         description: Producto eliminado exitosamente
- */
-router.delete('/:pid', (req, res) => {
-  pm.deleteProduct(parseInt(req.params.pid));
-  res.send('Producto eliminado');
-});
 
-router.post('/request-password-reset', async (req, res) => {
-  try {
-    const { email } = req.body;
-    const user = await UserModel.findOne({ email });
-    if (!user) {
-      throw new CustomError("USER_NOT_FOUND", "Usuario no encontrado");
-    }
+router.put('/:pid', async (req, res) => {
+  const product = await pm.getProductById(parseInt(req.params.pid));
 
-    const token = (Math.random() + 1).toString(36).substring(7);
-    const hashedToken = await bcrypt.hash(token, 10);
-    const now = new Date();
-    const tokenExpiration = new Date(now.getTime() + 60 * 60 * 1000); // 1 hora
+  if (!product) {
+    return res.status(404).send('Producto no encontrado');
+  }
 
-    user.resetToken = hashedToken;
-    user.resetTokenExpiration = tokenExpiration;
-    await user.save();
-
-    transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Restablecimiento de contraseña',
-      html: `<a href="http://localhost:8080/reset-password?token=${token}">Click here to reset your password</a>`
-    });
-    
-    res.send("Correo enviado exitosamente");
-  } catch (err) {
-    logger.error(err.message);
-    res.status(500).send(`Error del servidor: ${err.message}`);
-
+  if (req.user.role === 'admin' || (req.user.role === 'premium' && req.user._id.toString() === product.owner.toString())) {
+    const { title, description, price, thumbnail, code, stock } = req.body;
+    await pm.updateProduct(parseInt(req.params.pid), { title, description, price, thumbnail, code, stock });
+    res.send('Producto actualizado');
+  } else {
+    res.status(403).send('No tienes permiso para actualizar este producto');
   }
 });
 
-router.post('/reset-password', async (req, res) => {
-  try {
-    const { token, newPassword } = req.body;
-    const user = await UserModel.findOne({
-      resetTokenExpiration: { $gt: Date.now() }
-    });
 
-    if (!user) {
-      throw new CustomError("TOKEN_EXPIRED", "Token expirado");
-    }
+router.delete('/:pid', async (req, res) => {
+  const product = await pm.getProductById(parseInt(req.params.pid));
 
-    const isValid = await bcrypt.compare(token, user.resetToken);
+  if (!product) {
+    return res.status(404).send('Producto no encontrado');
+  }
 
-    if (!isValid) {
-      throw new CustomError("INVALID_TOKEN", "Token inválido");
-    }
-
-    if (user.comparePassword(newPassword)) {
-      throw new CustomError("SAME_PASSWORD", "La nueva contraseña no puede ser igual a la anterior");
-    }
-
-    user.password = newPassword;
-    user.resetToken = undefined;
-    user.resetTokenExpiration = undefined;
-    await user.save();
-
-    res.send("Contraseña actualizada exitosamente");
-  } catch (err) {
-    logger.error(err.message);
-    res.status().send('Error del servidor');
+  if (req.user.role === 'admin' || (req.user.role === 'premium' && req.user._id.toString() === product.owner.toString())) {
+    await pm.deleteProduct(parseInt(req.params.pid));
+    res.send('Producto eliminado');
+  } else {
+    res.status(403).send('No tienes permiso para eliminar este producto');
   }
 });
-router.get('/reset-password', (req, res) => {
-  const token = req.query.token;
-  if (!token) {
-    return res.status(400).send('Token no proporcionado');
-  }
-  res.render('password-reset', { token });
-});
-
 
 
   

@@ -6,8 +6,12 @@ const ProductSchema = new mongoose.Schema({
   price: Number,
   thumbnail: String,
   code: String,
-  stock: Number
-  // Agrega cualquier otro campo que necesites para tus productos
+  stock: Number,
+  owner: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'users', 
+    default: null 
+  }
 });
 
 const Product = mongoose.model('Product', ProductSchema);

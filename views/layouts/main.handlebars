@@ -19,11 +19,29 @@
   <a href="/logout">Cerrar sesión</a>
   <a href="/loggerTest">testlogs</a>
   <a href="/productEditor">Revisar productos</a><br>
+  <button id="togglePremium">Cambiar a Premium/Normal</button> <!-- Agregamos este botón -->
   {{{body}}}
 {{else}}
  {{{body}}}
- <a href="/request-password-reset">¿Olvidaste tu contraseña?</a>
+ <a href="/auth/request-reset-password">¿Olvidaste tu contraseña?</a>
 {{/if}}
 
+<script>
+  // Agregamos este script
+  document.getElementById('togglePremium').addEventListener('click', function() {
+      const userId = '{{user._id}}'; // Asume que el ID del usuario está en la sesión como user._id
+      fetch(`/api/users/premium/${userId}`, {
+          method: 'PUT'
+      })
+      .then(response => response.json())
+      .then(data => {
+          alert(data.message);  // Mostramos un mensaje con la respuesta del servidor
+          location.reload();  // Recargamos la página para que los cambios tengan efecto
+      })
+      .catch(error => {
+          console.error('Error:', error);
+      });
+  });
+</script>
 </body>
 </html>
