@@ -18,7 +18,31 @@ import { CustomError, ErrorDictionary } from '../errorHandler.js';
 import logger from '../config/logger.js';;
 import jwt from 'jsonwebtoken';
 import { sendResetPasswordEmail } from '../mailer.js';
+import multer from 'multer';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const dirPath = path.join(__dirname, 'uploads', 'documents');
+
+if (!fs.existsSync(dirPath)) {
+  fs.mkdirSync(dirPath, { recursive: true });
+  console.log(`Directorios creados en: ${dirPath}`);
+} else {
+  console.log(`Los directorios ya existen en: ${dirPath}`);
+}
+
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        let path = file.fieldname === 'profileImage' ? 'profiles' : file.fieldname === 'productImage' ? 'products' : 'documents';
+        cb(null, `uploads/${path}/`);
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    }
+});
+
+const upload = multer({ storage });
 const isUser = (req, res, next) => {
   if (req.session && req.session.user) {
       next();
@@ -45,27 +69,62 @@ const isAdminOrPremium = (req, res, next) => {
 const pm = new ProductManager('../productos.json');
 const cm = new CartManager('../carrito.json', pm);
 
-router.put('/api/users/premium/:uid', async (req, res) => {
+
+
+router.post('/api/users/:uid/documents', upload.array('documents'), async (req, res) => {
+  const { uid } = req.params;
+  const files = req.files;
+
+  if (!files) {
+      return res.status(400).send('No files were uploaded.');
+  }
+
+  const documents = files.map(file => ({
+      name: file.originalname,
+      reference: `/uploads/documents/${file.filename}`
+  }));
+
   try {
-    const user = await UserModel.findById(req.params.uid);
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-
-    // Toggle user's role between 'user' and 'premium'
-    if (user.role === 'user') {
-      user.role = 'premium';
-    } else if (user.role === 'premium') {
-      user.role = 'user';
-    }
-
-    await user.save();
-    res.json({ message: `Rol del usuario cambiado a ${user.role}` });
+      const user = await UserModel.findByIdAndUpdate(
+          uid,
+          { $push: { documents: { $each: documents } } },
+          { new: true }
+      );
+      res.status(200).send(user);
   } catch (error) {
-    logger.error('Error cambiando el rol del usuario:', error);
-    res.status(500).json({ message: 'Error al cambiar el rol del usuario' });
+      res.status(500).send(error.message);
   }
 });
+
+router.put('/api/users/premium/:uid', async (req, res) => {
+  try {
+      const user = await UserModel.findById(req.params.uid);
+      if (!user) {
+          return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const requiredDocs = ['Identificación', 'Comprobante de domicilio', 'Comprobante de estado de cuenta'];
+      const userDocsNames = user.documents.map(doc => doc.name);
+
+      if (!requiredDocs.every(doc => userDocsNames.includes(doc))) {
+          return res.status(400).send('El usuario no ha subido todos los documentos requeridos.');
+      }
+
+      // Toggle user's role between 'user' and 'premium'
+      if (user.role === 'user') {
+          user.role = 'premium';
+      } else if (user.role === 'premium') {
+          user.role = 'user';
+      }
+
+      await user.save();
+      res.json({ message: `Rol del usuario cambiado a ${user.role}` });
+  } catch (error) {
+      logger.error('Error cambiando el rol del usuario:', error);
+      res.status(500).json({ message: 'Error al cambiar el rol del usuario' });
+  }
+});
+
 
 router.get('/auth/request-reset-password', (req, res) => {
   console.log('Accediendo a la página de solicitud de restablecimiento de contraseña...');
@@ -160,8 +219,7 @@ router.post('/api/addProduct', (req, res) => {
 let products = [];
 let cartProducts = cm.getCart
 const messageManager = new MessageManagerDB
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+
 
 // Rutas de vistas
 router.post('/create-ticket', async (req, res) => {
@@ -365,15 +423,19 @@ router.get('/', async (req, res) => {
   
   
   
-  router.get('/logout', authMiddleware, (req, res) => {
+  router.get('/logout', authMiddleware, async (req, res) => {
+    const user = await UserModel.findById(req.session.user._id);
+    user.last_connection = new Date();
+    await user.save();
+  
     req.session.destroy((err) => {
-      if (err) {
-        res.status(500).send('No se pudo cerrar la sesión');
-      } else {
-        res.redirect('/login');
-      }
+        if (err) {
+            res.status(500).send('No se pudo cerrar la sesión');
+        } else {
+            res.redirect('/login');
+        }
     });
-  });
+});
   
   router.post('/login', async (req, res) => {
     const { email, password } = req.body;
@@ -392,11 +454,15 @@ router.get('/', async (req, res) => {
     
     if (!isMatch) {
       return res.status(401).send('La contraseña es incorrecta');
-    }
-  
-    req.session.user = user;
-    return res.redirect('/home');
-  });
+  }
+
+  user.last_connection = new Date();
+  await user.save();
+
+  req.session.user = user;
+  return res.redirect('/home');
+});
+
   
   
   

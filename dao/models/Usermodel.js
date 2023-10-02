@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 import bcrypt from 'bcrypt';
 
+
+const documentSchema = new mongoose.Schema({
+  name: String,
+  reference: String
+}, { _id : false });
 const userSchema = new mongoose.Schema({
     first_name: { type: String },
     last_name: { type: String },
@@ -8,10 +13,15 @@ const userSchema = new mongoose.Schema({
     age: { type: Number },
     password: { type: String },
     cart: { type: mongoose.Schema.Types.ObjectId, ref: 'Cart' },
+    documents: [documentSchema],
+    last_connection: { type: Date },
     role: { type: String, enum: ['user', 'admin', 'premium'], default: 'user' }
 
 
 });
+
+
+
 
 // Método para cifrar la contraseña antes de guardar el usuario
 userSchema.pre('save', function(next) {

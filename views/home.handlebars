@@ -10,3 +10,9 @@
   <a href="/auth/github">Entrar con Github</a>
   <a href="/productEditor">Revisar productos</a>
 
+
+<h2>Subir Documentos</h2>
+<form action="/api/users/:uid/documents" method="post" enctype="multipart/form-data">
+    <input type="file" name="documents" multiple><br>  <!-- Entrada de tipo file con atributo multiple -->
+    <input type="submit" value="Subir Documentos">
+</form>
